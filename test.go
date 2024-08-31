@@ -43,103 +43,155 @@ func main() {
 		fmt.Println("extraction failed")
 	}
 
-	fmt.Println("Difference between current and previous-> added ")
-	fmt.Println()
-
+	addedMap := make(map[string][]string)
 	for key, _ := range dstMap {
-
-		if strings.Contains(key, "values.yaml") { //strings.Contains(key, "deployment.yaml") || strings.Contains(key, "values.yaml") {
-
-			//break
-			fmt.Println()
+		if strings.Contains(key, "values.yaml") {
 			title := key
 			title = strings.TrimSuffix(title, title[len(title)-12:])
-			//fmt.Println("-->" + title + ":")
-			//fmt.Println()
 			resSrc := printAddedOne(key, srcMap, dstMap)
-
+			var addedList []string
 			if len(resSrc) > 0 {
-				fmt.Println()
-				fmt.Println("-->" + title + ":")
 				for _, v := range resSrc {
 					if strings.Contains(v, ".tag:") || strings.Contains(v, ".digest:") {
 						continue
 					}
-					reset := "\033[0m"
-					green := "\033[32m"
-					markedText := fmt.Sprintf("%s%s%s", green, v, reset)
-					fmt.Println(markedText)
+					addedList = append(addedList, v)
 				}
 			}
+			addedMap[title] = addedList
 		}
 	}
 
-	fmt.Println("Difference between previous and current ->  removed ")
-	fmt.Println()
-
+	removedMap := make(map[string][]string)
 	for key, _ := range srcMap {
-
 		if strings.Contains(key, "values.yaml") { //strings.Contains(key, "deployment.yaml") || strings.Contains(key, "values.yaml") {
-
-			fmt.Println()
 			title := key
 			title = strings.TrimSuffix(title, title[len(title)-12:])
-			//fmt.Println("-->" + title + ":")
-			//fmt.Println()
 
-			//break
-
+			var removedList []string
 			resSrc := printRemovedOne(key, srcMap, dstMap)
-			//fmt.Println("length->", len(resSrc))
 			if len(resSrc) > 0 {
-				//fmt.Println()
-				fmt.Println("-->" + title + ":")
 				for _, v := range resSrc {
 					if strings.Contains(v, ".tag:") || strings.Contains(v, ".digest:") {
 						continue
 					}
-					reset := "\033[0m"
-					red := "\033[31m"
-					markedText := fmt.Sprintf("%s%s%s", red, v, reset)
-					fmt.Println(markedText)
+					removedList = append(removedList, v)
 				}
 			}
-
+			removedMap[title] = removedList
 		}
 	}
 
+	fmt.Println("--------------------Final Result----------------")
+	updatedMap := updatedMapFunc(addedMap, removedMap)
+	for updatedKey, updatedListValue := range updatedMap {
+		addedValue := addedMap[updatedKey]
+		removedValue := removedMap[updatedKey]
+		for _, updatedValue := range updatedListValue {
+			// Remove updatedValue from addedValue
+			for i, v := range addedValue {
+				arrAdded := strings.Split(v, ":")
+				arrUpdated := strings.Split(updatedValue, ":")
+				if arrAdded[0] == arrUpdated[0] {
+					addedValue = append(addedValue[:i], addedValue[i+1:]...)
+					break
+				}
+			}
+			// Remove updatedValue from removedValue
+			for i, v := range removedValue {
+				arr := strings.Split(v, ":")
+				arrUpdated := strings.Split(updatedValue, ":")
+				if arr[0] == arrUpdated[0] {
+					removedValue = append(removedValue[:i], removedValue[i+1:]...)
+					break
+				}
+			}
+		}
+		addedMap[updatedKey] = addedValue
+		removedMap[updatedKey] = removedValue
+	}
+
+	fmt.Println("Added Map:")
+	for key, value := range addedMap {
+		if len(value) > 0 {
+			fmt.Println(key)
+			for _, v := range value {
+				reset := "\033[0m"
+				green := "\033[32m"
+				markedText := fmt.Sprintf("%s%s%s", green, v, reset)
+				fmt.Println(markedText)
+			}
+		}
+	}
+	fmt.Println("Removed Map:")
+	for key, value := range removedMap {
+		if len(value) > 0 {
+			fmt.Println(key)
+			for _, v := range value {
+				reset := "\033[0m"
+				red := "\033[31m"
+				markedText := fmt.Sprintf("%s%s%s", red, v, reset)
+				fmt.Println(markedText)
+			}
+		}
+	}
+	fmt.Println("Updated Map:")
+	for key, value := range updatedMap {
+		if len(value) > 0 {
+			fmt.Println(key)
+			for _, v := range value {
+				reset := "\033[0m"
+				yellow := "\033[33m"
+				markedText := fmt.Sprintf("%s%s%s", yellow, v, reset)
+				fmt.Println(markedText)
+			}
+		}
+	}
+}
+
+func updatedMapFunc(addedMap map[string][]string, removedMap map[string][]string) map[string][]string {
+	addSrcMap := make(map[string]string)
+	removeSrcMap := make(map[string]string)
+	updatedMap := make(map[string][]string)
+	for addedKey, addedListValue := range addedMap {
+		removedListValue, exists := removedMap[addedKey]
+		if exists {
+			addSrcMap = convertToMap(addedListValue)
+			removeSrcMap = convertToMap(removedListValue)
+		}
+		for addKey, addValue := range addSrcMap {
+			updatedList := make([]string, 0)
+			for removeKey, removeValue := range removeSrcMap {
+				if addKey == removeKey {
+					if addValue != removeValue {
+						res := addKey + ": " + addValue
+						updatedList = append(updatedList, res)
+						updatedMap[addedKey] = updatedList
+					}
+				}
+			}
+		}
+	}
+	return updatedMap
+}
+
+func convertToMap(lines []string) map[string]string {
+	result := make(map[string]string)
+	for _, line := range lines {
+		parts := strings.Split(line, ":")
+		key := strings.TrimSpace(parts[0])
+		if len(parts) == 2 {
+			value := strings.TrimSpace(parts[1])
+			result[key] = value
+		}
+	}
+	return result
 }
 
 func printAddedOne(str1 string, srcMap map[string]string, dstMap map[string]string) []string {
 
 	val1 := srcMap[str1]
 	val2 := dstMap[str1]
-
-	/*lines1 := strings.Split(val1, "\n")
-	lines2 := strings.Split(val2, "\n")
-
-	distinctLines := make(map[string]bool)
-
-	for _, line := range lines2 {
-		distinctLines[line] = true
-	}
-
-	for _, line := range lines1 {
-		if _, exists := distinctLines[line]; exists {
-			delete(distinctLines, line)
-		} else {
-			distinctLines[line] = false
-		}
-	}
-
-	for line, isDistinct := range distinctLines {
-		if isDistinct {
-			if strings.Contains(line, "digest") || strings.Contains(line, "tag") {
-				continue
-			}
-			fmt.Println(line)
-		}
-	}*/
 
 	convertedYAMLSRC := convertYAML(val1)
 	convertedYAMLDST := convertYAML(val2)
@@ -161,19 +213,10 @@ func printAddedOne(str1 string, srcMap map[string]string, dstMap map[string]stri
 		}
 	}
 
-	//fmt.Println(finalOutput)
-	//fmt.Println(convertedYAML)
 	var res []string
 	strArr := strings.Split(finalOutput, "<->")
 	for _, v := range strArr {
 		res = append(res, v)
-
-		/*if !strings.Contains(v, ".tag:") || !strings.Contains(v, ".digest:") {
-		reset := "\033[0m"
-		green := "\033[32m"
-		markedText := fmt.Sprintf("%s%s%s", green, v, reset)
-		fmt.Println(markedText)
-		}*/
 	}
 
 	return res
@@ -221,32 +264,6 @@ func printRemovedOne(str1 string, srcMap map[string]string, dstMap map[string]st
 
 	val1 := srcMap[str1]
 	val2 := dstMap[str1]
-
-	/*lines1 := strings.Split(val1, "\n")
-	lines2 := strings.Split(val2, "\n")
-
-	distinctLines := make(map[string]bool)
-
-	for _, line := range lines1 {
-		distinctLines[line] = true
-	}
-
-	for _, line := range lines2 {
-		if _, exists := distinctLines[line]; exists {
-			delete(distinctLines, line)
-		} else {
-			distinctLines[line] = false
-		}
-	}
-
-	for line, isDistinct := range distinctLines {
-		if isDistinct {
-			if strings.Contains(line, "digest") || strings.Contains(line, "tag") {
-				continue
-			}
-			fmt.Println(line)
-		}
-	}*/
 	convertedYAMLSRC := convertYAML(val2)
 	convertedYAMLDST := convertYAML(val1)
 
@@ -272,12 +289,6 @@ func printRemovedOne(str1 string, srcMap map[string]string, dstMap map[string]st
 	strArr := strings.Split(finalOutput, "<->")
 	for _, v := range strArr {
 		res = append(res, v)
-		/*if !strings.Contains(v, ".tag:") || !strings.Contains(v, ".digest:") {
-			reset := "\033[0m"
-			red := "\033[31m"
-			markedText := fmt.Sprintf("%s%s%s", red, v, reset)
-			fmt.Println(markedText)
-		}*/
 	}
 	return res
 }
