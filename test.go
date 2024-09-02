@@ -111,7 +111,7 @@ func main() {
 		removedMap[updatedKey] = removedValue
 	}
 
-	fmt.Println("Added Map:")
+	fmt.Println("Added Configs:")
 	for key, value := range addedMap {
 		if len(value) > 0 {
 			fmt.Println(key)
@@ -123,7 +123,7 @@ func main() {
 			}
 		}
 	}
-	fmt.Println("Removed Map:")
+	fmt.Println("Removed Configs:")
 	for key, value := range removedMap {
 		if len(value) > 0 {
 			fmt.Println(key)
@@ -135,7 +135,7 @@ func main() {
 			}
 		}
 	}
-	fmt.Println("Updated Map:")
+	fmt.Println("Updated Configs:")
 	for key, value := range updatedMap {
 		if len(value) > 0 {
 			fmt.Println(key)
